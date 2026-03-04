@@ -1,0 +1,14 @@
+# Laufzeitdaten
+EnergieBerater_Daten/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Build-Artefakte
+dist/
+build/
+*.spec
+*.exe
