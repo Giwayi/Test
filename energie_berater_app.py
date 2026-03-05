@@ -305,8 +305,17 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_response(200)
                 self.send_header("Content-Type", "application/json")
                 self._cors(); self.end_headers(); self.wfile.write(result)
+            except urllib.error.HTTPError as e:
+                err_body = ""
+                try: err_body = e.read().decode("utf-8", errors="replace")
+                except: pass
+                if e.code == 404:
+                    model_hint = f"Modell '{ollama_model}' nicht gefunden. Bitte ausführen: ollama pull {ollama_model}"
+                    self._json(503, {"error": {"message": model_hint}})
+                else:
+                    self._json(503, {"error": {"message": f"Ollama HTTP {e.code}: {err_body[:200]}"}})
             except urllib.error.URLError as e:
-                self._json(503, {"error": {"message": f"Ollama nicht erreichbar: {e}. Bitte 'ollama serve' starten."}})
+                self._json(503, {"error": {"message": f"Ollama nicht erreichbar. Bitte 'ollama serve' starten. ({e.reason})"}})
             except Exception as e:
                 log.error(f"Ollama-Fehler: {e}")
                 self._json(500, {"error": {"message": str(e)}})
