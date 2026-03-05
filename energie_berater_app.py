@@ -426,7 +426,7 @@ def _build_html_dev():
         "</script></body></html>",
     ])
 
-if _HTML_B64 == "<!--HTML_B64_PLACEHOLDER-->":
+if _HTML_B64.startswith("<!--"):
     HTML_CONTENT = _build_html_dev()
 else:
     HTML_CONTENT = _base64.b64decode(_HTML_B64).decode("utf-8")
