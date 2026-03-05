@@ -17,13 +17,21 @@ def fail(msg):
     input("  Enter zum Beenden...")
     sys.exit(1)
 
+CACHE_DIR = HERE / "_build_cache"
+CACHE_DIR.mkdir(exist_ok=True)
+
 def download(url, label):
+    cache_file = CACHE_DIR / (label.lower().replace(".", "_").replace(" ", "_") + ".js")
+    if cache_file.exists():
+        print(f"    {label}: aus Cache ({len(cache_file.read_bytes())//1024} KB)")
+        return cache_file.read_text("utf-8")
     print(f"    Lade {label}...", end="", flush=True)
     for attempt in range(3):
         try:
             req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
             with urllib.request.urlopen(req, timeout=120) as r:
                 data = r.read().decode("utf-8")
+            cache_file.write_text(data, "utf-8")
             print(f" {len(data)//1024} KB")
             return data
         except Exception as e:

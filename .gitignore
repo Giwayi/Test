@@ -1,6 +1,9 @@
 # Laufzeitdaten
 EnergieBerater_Daten/
 
+# CDN-Cache (wird von build_setup.py und patch.py befuellt)
+_build_cache/
+
 # Python
 __pycache__/
 *.pyc

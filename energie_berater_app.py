@@ -426,7 +426,11 @@ def _build_html_dev():
         "</script></body></html>",
     ])
 
-if _HTML_B64.startswith("<!--"):
+# Patch-Datei neben der EXE hat höchste Priorität (erzeugt von patch.py)
+_patch_file = Path(sys.executable).parent / "html_patch.b64" if getattr(sys, "frozen", False) else None
+if _patch_file and _patch_file.exists():
+    HTML_CONTENT = _base64.b64decode(_patch_file.read_bytes()).decode("utf-8")
+elif _HTML_B64.startswith("<!--"):
     HTML_CONTENT = _build_html_dev()
 else:
     HTML_CONTENT = _base64.b64decode(_HTML_B64).decode("utf-8")
