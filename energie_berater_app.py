@@ -431,7 +431,28 @@ if __name__ == "__main__":
             "--disable-web-security --allow-running-insecure-content "
             "--disable-features=BlockInsecurePrivateNetworkRequests")
 
-        win = QMainWindow()
+        _cleaned = [False]
+
+        class DebugPage(QWebEnginePage):
+            def javaScriptConsoleMessage(self, level, message, line, source):
+                log.info(f"JS [{level.name}] {source}:{line}: {message}")
+
+        class MainWindow(QMainWindow):
+            def closeEvent(self, event):
+                if not _cleaned[0]:
+                    _cleaned[0] = True
+                    try:
+                        view.stop()
+                        view.setPage(None)
+                        page.deleteLater()
+                        view.deleteLater()
+                        profile.deleteLater()
+                    except Exception:
+                        pass
+                event.accept()
+                qt.quit()
+
+        win = MainWindow()
         win.setWindowTitle("EnergieBerater KI")
         win.resize(1440, 920)
         win.setMinimumSize(960, 640)
@@ -447,45 +468,11 @@ if __name__ == "__main__":
         except Exception as e:
             log.warning(f"Icon konnte nicht gesetzt werden: {e}")
 
-        class DebugPage(QWebEnginePage):
-            def javaScriptConsoleMessage(self, level, message, line, source):
-                log.info(f"JS [{level.name}] {source}:{line}: {message}")
-
         page = DebugPage(profile, win)
         view = QWebEngineView(win)
         view.setPage(page)
-
-        # Sauberes Beenden: Chromium-Renderer-Prozesse korrekt beenden
-        def _cleanup():
-            try:
-                view.stop()
-                view.setPage(None)
-                page.deleteLater()
-                view.deleteLater()
-                profile.deleteLater()
-            except Exception:
-                pass
-
-        qt.aboutToQuit.connect(_cleanup)
-
-        class MainWindow(QMainWindow):
-            def closeEvent(self, event):
-                _cleanup()
-                event.accept()
-                qt.quit()
-
-        win2 = MainWindow()
-        win2.setWindowTitle(win.windowTitle())
-        win2.resize(win.size())
-        win2.setMinimumSize(win.minimumSize())
-        try:
-            win2.setWindowIcon(win.windowIcon())
-        except Exception:
-            pass
-        win2.setCentralWidget(view)
-        win2.show()
-        win = win2
-
+        win.setCentralWidget(view)
+        win.show()
         page.load(QUrl(url + "/"))
 
         qt.exec()
