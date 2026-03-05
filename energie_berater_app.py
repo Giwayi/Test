@@ -454,12 +454,42 @@ if __name__ == "__main__":
         page = DebugPage(profile, win)
         view = QWebEngineView(win)
         view.setPage(page)
-        # Per URL laden (kein setHtml - hat 2MB Limit)
-        win.setCentralWidget(view)
-        win.show()
+
+        # Sauberes Beenden: Chromium-Renderer-Prozesse korrekt beenden
+        def _cleanup():
+            try:
+                view.stop()
+                view.setPage(None)
+                page.deleteLater()
+                view.deleteLater()
+                profile.deleteLater()
+            except Exception:
+                pass
+
+        qt.aboutToQuit.connect(_cleanup)
+
+        class MainWindow(QMainWindow):
+            def closeEvent(self, event):
+                _cleanup()
+                event.accept()
+                qt.quit()
+
+        win2 = MainWindow()
+        win2.setWindowTitle(win.windowTitle())
+        win2.resize(win.size())
+        win2.setMinimumSize(win.minimumSize())
+        try:
+            win2.setWindowIcon(win.windowIcon())
+        except Exception:
+            pass
+        win2.setCentralWidget(view)
+        win2.show()
+        win = win2
+
         page.load(QUrl(url + "/"))
 
-        sys.exit(qt.exec())
+        qt.exec()
+        os._exit(0)
 
     except Exception as e:
         log.error(f"Fehler: {e}")
