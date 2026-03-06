@@ -8,7 +8,7 @@ Log:     ./EnergieBerater_Daten/app.log
 """
 
 import sys, os, json, uuid, threading, time, mimetypes, traceback, re, zlib, subprocess, shutil
-import urllib.request, urllib.error, urllib.parse
+import urllib.request, urllib.error, urllib.parse, atexit, signal
 from pathlib import Path
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
@@ -205,6 +205,20 @@ _ollama_proc  = None
 _pull_lock    = threading.Lock()
 _pull_state   = {"running": False, "status": "", "percent": 0, "done": False, "error": ""}
 
+# Sicherstellen dass Ollama beim Programmende immer beendet wird
+def _atexit_stop():
+    stop_ollama()
+
+atexit.register(_atexit_stop)
+
+def _signal_stop(signum, frame):
+    stop_ollama()
+    sys.exit(0)
+
+for _sig in (signal.SIGTERM, signal.SIGINT):
+    try: signal.signal(_sig, _signal_stop)
+    except Exception: pass
+
 def find_ollama():
     p = shutil.which("ollama")
     if p: return p
@@ -227,15 +241,30 @@ def is_ollama_running(url=None):
     except: return False
 
 def stop_ollama():
-    """Ollama-Prozess sauber beenden (nur wenn von uns gestartet)."""
+    """Ollama-Prozess sauber beenden (nur wenn von uns gestartet).
+    Beendet den gesamten Prozessbaum – verhindert Zombie-Prozesse auf Windows."""
     global _ollama_proc
-    if _ollama_proc and _ollama_proc.poll() is None:
-        try:
-            _ollama_proc.terminate()
-            _ollama_proc.wait(timeout=5)
-        except Exception:
-            try: _ollama_proc.kill()
-            except Exception: pass
+    if not (_ollama_proc and _ollama_proc.poll() is None):
+        _ollama_proc = None
+        return
+    pid = _ollama_proc.pid
+    try:
+        if os.name == "nt":
+            # Windows: gesamten Prozessbaum zwangsweise beenden
+            subprocess.run(["taskkill", "/F", "/T", "/PID", str(pid)],
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        else:
+            # Linux/Mac: Prozessgruppe beenden (Ollama forkt ggf. Kind-Prozesse)
+            try:
+                import signal as _sig
+                os.killpg(os.getpgid(pid), _sig.SIGTERM)
+            except Exception:
+                _ollama_proc.terminate()
+        _ollama_proc.wait(timeout=6)
+    except Exception:
+        try: _ollama_proc.kill()
+        except Exception: pass
+    finally:
         _ollama_proc = None
 
 def start_ollama_serve():
